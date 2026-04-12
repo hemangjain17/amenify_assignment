@@ -245,61 +245,104 @@ async def chat_endpoint(req: ChatRequest):
         sessions[session_id] = []
     history = sessions[session_id]
 
-    # ── RAG retrieval ──────────────────────────────────────────────────────
-    context_chunks: list[dict[str, Any]] = []
-    if kb and kb.is_ready():
-        try:
-            context_chunks = kb.search(req.message)
-        except Exception as exc:
-            print(f"[Main] KB search error (non-fatal): {exc}")
-    found_in_kb = len(context_chunks) > 0
-
-    # ── Build messages ─────────────────────────────────────────────────────
-    system_prompt   = build_system_prompt(context_chunks)
-    trimmed_history = history[-(MAX_HISTORY_TURNS * 2):]
-    messages = (
-        [{"role": "system", "content": system_prompt}]
-        + trimmed_history
-        + [{"role": "user",   "content": req.message}]
-    )
-
-    sources = [
-        {"url": c["source_url"], "score": c["score"]}
-        for c in context_chunks
-    ]
-
     # ── SSE generator ──────────────────────────────────────────────────────
     async def event_generator():
+        # Yield instant UI feedback as a status message (not final content)
+        yield {"data": json.dumps({"status_text": "Searching knowledge base..."})}
+        
+        # ── 1. Query Rewriting Layer ───────────────────────────────────────────
+        search_query = req.message
+        if history:
+            history_str = "\n".join([f"{m['role']}: {m['content']}" for m in history[-4:]])
+            rewrite_prompt = (
+                "You are a query rewriter. Given the conversation history, rewrite the user's latest query "
+                "to make it highly specific for a search engine. Output ONLY the rewritten query text.\n\n"
+                f"History:\n{history_str}\n\nLatest Query: {req.message}"
+            )
+            try:
+                # Wrap synchronous chat call in thread
+                expanded = await asyncio.to_thread(lambda: llm.chat([{"role": "user", "content": rewrite_prompt}]).strip())
+                if expanded and len(expanded) < 200:
+                    search_query = expanded
+                    print(f"[Main] Rewrote query to: {search_query}")
+            except Exception as exc:
+                print(f"[Main] Query rewrite failed: {exc}")
+
+        # ── 2. RAG retrieval ──────────────────────────────────────────────────────
+        context_chunks: list[dict[str, Any]] = []
+        if kb and kb.is_ready():
+            try:
+                context_chunks = await asyncio.to_thread(lambda: kb.search(search_query))
+            except Exception as exc:
+                print(f"[Main] KB search error (non-fatal): {exc}")
+                
+        # ── 3. Empty Context Trigger ───────────────────────────────────────────
+        THRESHOLD = 0.0
+        if context_chunks and context_chunks[0]["score"] < THRESHOLD:
+            print(f"[Main] Top score {context_chunks[0]['score']} < {THRESHOLD}. Triggering empty context.")
+            context_chunks = []
+            
+        # ── 4. Guardrail Self-Correction ───────────────────────────────────────
+        if context_chunks:
+            ctx_text = "\n".join([c["text"] for c in context_chunks])
+            guard_prompt = (
+                "Does the retrieved context actually contain the answer to the user query? "
+                "Respond ONLY with 'YES' or 'NO'.\n\n"
+                f"Query: {search_query}\n\nContext:\n{ctx_text}"
+            )
+            try:
+                guard_resp = await asyncio.to_thread(lambda: llm.chat([{"role": "user", "content": guard_prompt}]).strip().upper())
+                if "NO" in guard_resp:
+                    print("[Main] Guardrail triggered: Context does not contain answer.")
+                    context_chunks = []
+            except Exception as exc:
+                pass
+                
+        found_in_kb = len(context_chunks) > 0
+
+        # Update UI automatically with intermediate UI progress
+        if found_in_kb:
+            yield {"data": json.dumps({"status_text": f"Found {len(context_chunks)} relevant items..."})}
+            
+        # ── Build messages ─────────────────────────────────────────────────────
+        system_prompt   = build_system_prompt(context_chunks)
+        trimmed_history = history[-(MAX_HISTORY_TURNS * 2):]
+        messages = (
+            [{"role": "system", "content": system_prompt}]
+            + trimmed_history
+            + [{"role": "user",   "content": req.message}]
+        )
+
+        sources = [
+            {"url": c["source_url"], "score": c["score"]}
+            for c in context_chunks
+        ]
+        
+        # ── Execute LLM Stream ─────────────────────────────────────────────────
         full_reply_parts: list[str] = []
         token_queue: asyncio.Queue[str | None] = asyncio.Queue()
         loop = asyncio.get_event_loop()
 
         def _produce() -> None:
-            """
-            Runs llm.stream_chat() synchronously in a thread-pool executor.
-            Puts each token onto the asyncio queue; sends None sentinel when done.
-            """
             try:
-                for token in llm.stream_chat(messages):
-                    loop.call_soon_threadsafe(token_queue.put_nowait, token)
+                for stream_token in llm.stream_chat(messages):
+                    loop.call_soon_threadsafe(token_queue.put_nowait, stream_token)
             except Exception as exc:
                 error_token = f"\n\n⚠️ LLM error: {exc}"
                 loop.call_soon_threadsafe(token_queue.put_nowait, error_token)
             finally:
-                loop.call_soon_threadsafe(token_queue.put_nowait, None)  # sentinel
+                loop.call_soon_threadsafe(token_queue.put_nowait, None)
 
         producer_future = loop.run_in_executor(None, _produce)
 
-        # Forward tokens to the SSE stream as they arrive
         while True:
-            token = await token_queue.get()
-            if token is None:
+            stream_token = await token_queue.get()
+            if stream_token is None:
                 break
-            full_reply_parts.append(token)
-            yield {"data": json.dumps({"token": token})}
+            full_reply_parts.append(stream_token)
+            yield {"data": json.dumps({"token": stream_token})}
 
-        await producer_future   # ensure the thread has fully exited
-
+        await producer_future
         reply_text = "".join(full_reply_parts)
 
         # Persist turn in session history

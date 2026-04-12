@@ -40,18 +40,16 @@ across the United States.
    No partial guesses, no suggestions from pre-training.
 
 3. **Navigation Guidance (REQUIRED)**
-   After your direct answer, you MUST include a "**How to get there →**" section
-   that lists every relevant link from the context using this exact markdown format:
-   - [Link Text](https://full-url)
-   Only include links that are genuinely relevant to the user's query.
-   If there are no relevant links, omit this section entirely.
+   Whenever you mention a specific service, step, or action, you MUST provide the relevant link directly inline next to it. 
+   Use this exact markdown format: [Link Text](https://full-url). 
+   Do NOT dump all links at the end of the response; integrate them naturally into the flow of your answer.
 
 4. **Response Format**
    Use clean markdown:
    - Bold for key terms
    - Bullet lists for steps or options
-   - The "How to get there →" section always goes last
-   Keep the answer concise (max 250 words before the links section).
+   - Embed navigation links inline where the service or step is mentioned.
+   Keep the answer concise (max 250 words).
 
 5. **Tone**
    Be warm, professional, and direct. Don't say "based on the context" or reveal
@@ -125,7 +123,7 @@ def build_system_prompt(context_chunks: list[dict[str, Any]]) -> str:
         f"  - [{lk['label']}]({lk['url']})" for lk in available_links[:60]
     )
     link_block = (
-        f"\n\n[AVAILABLE NAVIGATION LINKS — use these in your 'How to get there →' section]\n"
+        f"\n\n[AVAILABLE NAVIGATION LINKS — Use these to embed links inline where applicable]\n"
         f"{link_directory}"
         if link_directory
         else ""

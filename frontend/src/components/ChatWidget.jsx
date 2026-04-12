@@ -121,6 +121,15 @@ export default function ChatWidget() {
                   : m
               )
             )
+          } else if (evt.status_text !== undefined) {
+            // Update status text
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === botId
+                  ? { ...m, status_text: evt.status_text }
+                  : m
+              )
+            )
           }
 
           if (evt.done) {
@@ -260,14 +269,23 @@ export default function ChatWidget() {
             <MessageBubble key={msg.id} msg={msg} />
           ))}
 
-          {/* Typing indicator */}
+          {/* Typing indicator or Status text */}
           {loading && messages[messages.length - 1]?.content === '' && (
             <div style={typingWrap}>
-              <div style={typingBubble}>
-                {[0,1,2].map((i) => (
-                  <span key={i} style={typingDot(i)} />
-                ))}
-              </div>
+              {messages[messages.length - 1]?.status_text ? (
+                <div style={statusBubble}>
+                  <svg className="status-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="32" strokeLinecap="round" />
+                  </svg>
+                  <span>{messages[messages.length - 1].status_text}</span>
+                </div>
+              ) : (
+                <div style={typingBubble}>
+                  {[0,1,2].map((i) => (
+                    <span key={i} style={typingDot(i)} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -348,6 +366,14 @@ export default function ChatWidget() {
         @keyframes typingBlink {
           0%,80%,100% { opacity: 0.2; transform: translateY(0); }
           40%          { opacity: 1;   transform: translateY(-4px); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .status-spinner {
+          animation: spin 1s linear infinite;
+          color: #1BAF72;
+          flex-shrink: 0;
         }
         .ami-link { color: #1BAF72 !important; font-weight: 500; }
         .ami-link:hover { text-decoration: underline !important; }
@@ -632,6 +658,20 @@ const typingBubble = {
   display: 'flex',
   gap: 5,
   alignItems: 'center',
+}
+
+const statusBubble = {
+  background: '#E8F8F1',
+  color: '#1BAF72',
+  borderRadius: '4px 18px 18px 18px',
+  padding: '0.6rem 0.85rem',
+  display: 'inline-flex',
+  gap: '0.5rem',
+  alignItems: 'center',
+  fontSize: '0.8rem',
+  fontWeight: 500,
+  border: '1px solid rgba(27,175,114,0.2)',
+  boxShadow: '0 2px 8px rgba(27,175,114,0.08)',
 }
 
 const typingDot = (i) => ({

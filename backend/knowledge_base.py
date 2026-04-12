@@ -10,8 +10,8 @@ CLI usage (rebuild the index):
     python knowledge_base.py
 """
 
-from chroma_store import ChromaKB as KnowledgeBase   # noqa: F401
-from chroma_store import build_chroma_index as build_index  # noqa: F401
+from pinecone_store import PineconeKB as KnowledgeBase   # noqa: F401
+from pinecone_store import build_pinecone_index as build_index  # noqa: F401
 
 __all__ = ["KnowledgeBase", "build_index"]
 
@@ -20,11 +20,11 @@ __all__ = ["KnowledgeBase", "build_index"]
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     import sys
-    from chroma_store import build_chroma_index, KB_RECORDS_PATH
+    from pinecone_store import build_pinecone_index, KB_RECORDS_PATH
 
     if not KB_RECORDS_PATH.exists():
         print("[ERROR] kb_records.json not found. Run python scraper.py first.")
         sys.exit(1)
 
-    total = build_chroma_index()
+    total = build_pinecone_index()
     print(f"[KnowledgeBase] Index built — {total} vectors.")
