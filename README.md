@@ -11,10 +11,14 @@ Deplyed Link - <a>https://amenify-frontend.vercel.app</a>
 
 ## 🏗 Architecture & Core Concepts (The Pipeline)
 
-### 1. Data Ingestion & ETL (Firecrawl Scraper)
+### 1. Data Ingestion & ETL (HTML Source Scraper)
 
-- **Dual-Extraction Strategy:** Utilizing the Firecrawl API, the scraper extracts both raw Markdown (for dense embeddings) and structured JSON schemas (summaries, CTAs, FAQs) per page.
-- **Incremental Batch Indexing:** `scraper.py` utilizes MD5 content-hash diffing. It only re-embeds and updates records if the page content has mathematically changed, saving massive API overhead and compute time during cron updates.
+- **Structured Knowledge Base Maintenance:** Before any embedding takes place, the system ensures a clean, organized dataset. By selectively parsing the DOM, it filters out noisy HTML elements (like navbars or footers) and focuses strictly on the core content.
+- **Scraping Schema & Key Data Points:** Utilizing simple HTML parsing (e.g., BeautifulSoup), the scraper targets specific semantic tags. The prioritized schema includes:
+  - **Headings** (`<h1>`, `<h2>`, `<h3>`) to capture topic boundaries and context.
+  - **Core Content** (`<p>`, `<li>`) to extract policies, service details, and instructions.
+  - **Actionable Links** (Call-To-Actions and references) to ground the bot's navigation responses.
+- **Incremental Indexing:** `scraper.py` utilizes content-hash diffing. It only re-embeds and updates records if the strictly extracted, structured text has changed, saving compute time during updates.
 
 ### 2. Cloud Vector Storage (Pinecone Serverless)
 
@@ -39,10 +43,10 @@ Why is this pipeline built for production?
 
 | Feature                      | How it solves Production/Latency constraints                                                                                                                                                                        |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Streaming SSE Interfaces** | **Perceived Latency = 0**. Tokens are piped over Server-Sent Events from FastAPI directly to the React ChatWidget UI the millisecond they are generated.                                                            |
-| **Provider Fallback Chain**  | Guarantees high availability. Most bots die when an OpenAI/HF endpoint goes down. This bot silently routes to a secondary Google Gemini engine.                                                                     |
-| **Cloud-Native Search**      | Relying on Pinecone AWS us-east-1 eliminates server disk I/O bottlenecks. Cross-encoder reranking isolates only the top 3 best chunks to keep the LLM context window small, speeding up Token-To-First-Word (TTFW). |
+| **Provider Fallback Chain**  | Guarantees high availability. Most bots die when an OpenAI/HF endpoint goes down. This bot silently routes to a secondary **Google Gemini** engine.                                                                     |
+| **Cloud-Native Search**      | Relying on Pinecone, eliminates server disk I/O bottlenecks. Cross-encoder reranking isolates only the top 3 best chunks to keep the LLM context window small, speeding up Token-To-First-Word (TTFW). |
 | **Stateless Scalability**    | The FastAPI container holds zero state. All memory is injected per-request, meaning you can auto-scale horizontally to 100+ instances behind a load balancer without data syncing issues.                           |
+| **Continuous Indexing**      | Keeps the knowledge base fully synchronized with the live site while keeping the code safe. By verifying content diffs, it ensures the bot always serves up-to-date answers automatically.                          |
 
 ---
 
@@ -74,9 +78,6 @@ pip install -r requirements.txt
 Create a `.env` file in the `backend/` directory using the `.env.example`:
 
 ```env
-# ── Firecrawl (Required for Data Extraction) ─────────────
-FIRECRAWL_API_KEY=fc-YOUR-KEY
-
 # ── Cloud Vector DB (Required for RAG) ───────────────────
 PINECONE_API_KEY=pcsk_YOUR-KEY
 
