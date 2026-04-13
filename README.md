@@ -1,7 +1,3 @@
-<div align="center">
-  <img src="https://mintlify.s3-us-west-1.amazonaws.com/amenify/logo/light.png" alt="Amenify Logo" width="200" />
-</div>
-
 <h1 align="center">Amenify AI Customer Support Bot</h1>
 
 <p align="justify">
