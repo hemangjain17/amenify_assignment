@@ -3,7 +3,7 @@
 <p align="justify">
   A production-ready, full-stack AI-powered customer support bot for Amenify. Features a cloud-native Serverless RAG pipeline, real-time SSE streaming, and a robust fault-tolerant LLM router built for scale.
 
-Deplyed Link - <a>https://amenify-frontend.vercel.app</a>
+Deplyed Link - <a>https://amenify-chat.vercel.app</a>
 
 </p>
 
@@ -41,12 +41,12 @@ Deplyed Link - <a>https://amenify-frontend.vercel.app</a>
 
 Why is this pipeline built for production?
 
-| Feature                      | How it solves Production/Latency constraints                                                                                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider Fallback Chain**  | Guarantees high availability. Most bots die when an OpenAI/HF endpoint goes down. This bot silently routes to a secondary **Google Gemini** engine.                                                                     |
-| **Cloud-Native Search**      | Relying on Pinecone, eliminates server disk I/O bottlenecks. Cross-encoder reranking isolates only the top 3 best chunks to keep the LLM context window small, speeding up Token-To-First-Word (TTFW). |
-| **Stateless Scalability**    | The FastAPI container holds zero state. All memory is injected per-request, meaning you can auto-scale horizontally to 100+ instances behind a load balancer without data syncing issues.                           |
-| **Continuous Indexing**      | Keeps the knowledge base fully synchronized with the live site while keeping the code safe. By verifying content diffs, it ensures the bot always serves up-to-date answers automatically.                          |
+| Feature                     | How it solves Production/Latency constraints                                                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Provider Fallback Chain** | Guarantees high availability. Most bots die when an OpenAI/HF endpoint goes down. This bot silently routes to a secondary **Google Gemini** engine.                                                          |
+| **Cloud-Native Search**     | Relying on Pinecone, eliminates server disk I/O bottlenecks. Cross-encoder reranking isolates only the top 3 best chunks to keep the LLM context window small, speeding up Token-To-First-Word (TTFW).       |
+| **Stateless Scalability**   | The FastAPI container holds zero state. All memory is injected per-request, meaning you can auto-scale horizontally to 100+ instances behind a load balancer without data syncing issues.                    |
+| **Continuous Indexing**     | Keeps the knowledge base fully synchronized with the live site. By verifying content diffs in the background, it ensures the bot always serves up-to-date answers while keeping the broader codebase stable. |
 
 ---
 
@@ -108,8 +108,6 @@ cd backend
 uvicorn main:app --reload --port 8000
 ```
 
-> The API server is ready at **http://localhost:8000**
-
 ### 6. Start the Frontend
 
 ```bash
@@ -117,8 +115,6 @@ cd ../frontend
 npm install
 npm run dev
 ```
-
-> Navigate to **http://localhost:5173** to interact with the responsive Amenify UI and Chatbot!
 
 ---
 
