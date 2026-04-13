@@ -28,6 +28,25 @@ export default function ChatWidget() {
   )
   const [loading, setLoading]     = useState(false)
   const [unread, setUnread]       = useState(0)
+  const [showTooltip, setShowTooltip] = useState(false)
+
+  // Show tooltip after 2.5s if chat is not opened
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!open && sessionStorage.getItem('ami_tooltip_seen') !== 'true') {
+        setShowTooltip(true)
+      }
+    }, 2500)
+    return () => clearTimeout(timer)
+  }, [open])
+
+  // Hide tooltip on open
+  useEffect(() => {
+    if (open) {
+      setShowTooltip(false)
+      sessionStorage.setItem('ami_tooltip_seen', 'true')
+    }
+  }, [open])
 
   const bottomRef   = useRef(null)
   const inputRef    = useRef(null)
@@ -220,6 +239,29 @@ export default function ChatWidget() {
           <span style={unreadBadge}>{unread}</span>
         )}
       </button>
+
+      {/* ── Tooltip ──────────────────────────────────────── */}
+      {!open && showTooltip && (
+        <div style={tooltipStyle} onClick={() => setOpen(true)}>
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation()
+              setShowTooltip(false)
+              sessionStorage.setItem('ami_tooltip_seen', 'true')
+            }} 
+            style={tooltipClose}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+             <span style={{ fontSize: '1rem' }}>👋</span>
+             <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem' }}>Have a question?</p>
+          </div>
+          <p style={{ margin: 0, color: '#4B5563', fontSize: '0.75rem', paddingRight: '12px' }}>Ask Ami about Amenify!</p>
+          <div style={tooltipArrow} />
+        </div>
+      )}
 
       {/* ── Chat panel ───────────────────────────────────── */}
       <div
@@ -756,4 +798,45 @@ const panelFooter = {
   background: '#FAFAFA',
   borderTop: '1px solid #F3F4F6',
   flexShrink: 0,
+}
+
+const tooltipStyle = {
+  position: 'fixed',
+  bottom: 100,
+  right: 28,
+  background: '#fff',
+  color: '#0E3D24',
+  padding: '12px 14px',
+  borderRadius: 12,
+  boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+  zIndex: 9999,
+  animation: 'slideUp 0.3s cubic-bezier(0.4,0,0.2,1)',
+  border: '1px solid #E5E7EB',
+  width: 170,
+  cursor: 'pointer',
+}
+
+const tooltipArrow = {
+  position: 'absolute',
+  bottom: -6,
+  right: 20,
+  width: 12,
+  height: 12,
+  background: '#fff',
+  borderBottom: '1px solid #E5E7EB',
+  borderRight: '1px solid #E5E7EB',
+  transform: 'rotate(45deg)',
+}
+
+const tooltipClose = {
+  position: 'absolute',
+  top: 4,
+  right: 4,
+  background: 'none',
+  border: 'none',
+  fontSize: '1.2rem',
+  cursor: 'pointer',
+  color: '#9CA3AF',
+  padding: 4,
+  lineHeight: 1,
 }
